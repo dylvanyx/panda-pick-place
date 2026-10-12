@@ -1,0 +1,43 @@
+<mujoco model="panda pick table scene">
+  <include file="panda.xml"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <material name="cube_mat" rgba="0.95 0.25 0.25 1"/>
+    <material name="table_mat" rgba="0.45 0.42 0.38 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- 桌面：顶面 z = 0.25。panda 手指下缘比夹取中心低 0.0604，
+         抓取时手指下缘约在 0.26，留出 1cm 余量，不会插进桌面。 -->
+    <body name="table" pos="0.55 0 0.125">
+      <geom name="table_top" type="box" size="0.30 0.30 0.125" material="table_mat"
+            contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- 方块：宽 50mm x 高 40mm，中心离桌面 0.02。
+         尺寸是倒推出来的（三个约束都要满足）：
+           - 宽 50mm < 手指内表面最大间距 59mm（注意不是 80mm！80 是两指
+             body 中心的距离，减去单边指厚 10.5mm 才是真正的开口），
+             留 4.5mm 单边余量，下降时不会撞到
+           - 高 40mm < 手指长 74.6mm，手指能覆盖整个侧面才夹得稳
+         用方块不用球：球面接触一夹就滚走，平面接触才夹得稳。 -->
+    <body name="cube" pos="0.5 0 0.27">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.02" material="cube_mat"
+            contype="1" conaffinity="1"/>
+    </body>
+  </worldbody>
+</mujoco>

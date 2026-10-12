@@ -1,0 +1,23 @@
+# ---- Python 编译缓存 ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ---- MuJoCo 运行时日志（每次运行都会重新生成，不需要进仓库）----
+MUJOCO_LOG.TXT
+*.log
+
+# ---- 编辑器配置（每台机器不一样，不共享）----
+.vscode/
+.idea/
+
+# ---- 系统生成 ----
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ---- 说明 ----
+# franka_emika_panda/assets/ 是 MuJoCo Menagerie 的模型网格（34MB，Apache-2.0），
+# 这里选择【提交】，好处是别人 clone 下来就能直接跑。
+# 若想让仓库变小，把下面一行的 # 去掉即可（但之后必须自己下载模型才能运行）。
+# franka_emika_panda/assets/
