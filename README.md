@@ -38,6 +38,14 @@ D:\MuJoCo_Projects\mujoco_env\python.exe
 | `three_d_link.py` | 3D 单连杆手写 FK（RPY + 4×4 齐次矩阵） |
 | `two_link_3D.py` | 3D 二连杆手写 FK |
 | `matrix_calc.py` | 矩阵乘法小工具 |
+| `完整示例.py` | IK 闭环六步最小示例（`GOAL` / `QUAT` 两个开关） |
+| `闭环控制.py` | `move_to()` 到位即停：容差 10 mm + 连续 25 次确认 |
+| `循环对比.py` | 错误循环 vs 正确闭环，各 800 步对照 |
+| `四元数解读.py` | 输入 wxyz，打印旋转角、单位轴、RPY 与旋转矩阵 |
+| `抓取举升.py` | 下降 → 夹紧 → 举升 → 转腕完整流程，附实测安全转速表 |
+| `插值转身.py` | 位置直线 + 姿态插值同步，S 曲线起停，内置 PostureTask |
+| `dataflow_trace.py` | 追踪 `MjModel` / `MjData` 的数据流 |
+| `封装函数/` | `make_ik()` 统一初始化（model / data / cfg / task / limits / dt） |
 
 ## 运行
 
@@ -59,7 +67,11 @@ run.bat franka_emika_panda\scene_pick_table.xml
 D:\MuJoCo_Projects\mujoco_env\python.exe ik_demo.py
 D:\MuJoCo_Projects\mujoco_env\python.exe grasp_demo.py
 D:\MuJoCo_Projects\mujoco_env\python.exe fk_check.py
+D:\MuJoCo_Projects\mujoco_env\python.exe 插值转身.py
+D:\MuJoCo_Projects\mujoco_env\python.exe 抓取举升.py
 ```
+
+`插值转身.py` 加 `--headless` 可不开窗口，只打印用时、位置漂移与姿态残差。
 
 ## 已完成
 
@@ -69,11 +81,17 @@ D:\MuJoCo_Projects\mujoco_env\python.exe fk_check.py
   耗时约 6 ms，残差约 1e-8 m，关节限位检查无越界。
 - **抓取闭环**：桌面 50 mm 方块，IK → 到位判定 → 夹爪闭合 → 抬升，实测抬升 **223.4 mm**。
 - **夹爪几何标定**：真实内开口 59 mm（非 80 mm），两指夹取中心相对 `hand` 偏移 58.4 mm。
+- **姿态插值**：`SO3.interpolate()`（等价四元数 slerp，逐点差 5e-16）驱动末端转向，
+  位置与姿态共用同一进度参数；转 90° / 45°每秒，位置漂移 7.1 mm、姿态残差 1.4°。
+- **时间参数化**：起停用 S 曲线（`u = t²(3−2t)`），姿态残差从 4.52° 降到 1.38°。
+- **冗余自由度**：`PostureTask(cost=1e-2)` 让七关节臂多余的自由度回归 home 位，
+  绕世界 y 轴转 90° 从 212.5 mm / 38.5° 改善到 9.6 mm / 0.4°。
+- **转腕安全线**：纯平移举升 ≤1500 mm/s；夹持转腕 90° 用 45°/s，180° 须 ≤22°/s。
 
 ## 进行中
 
 - Panda 七关节手写 FK 与 MuJoCo 逐段对拍
-- gymnasium 风格环境封装（`reset()` / `step()`）
+- gymnasium 风格环境封装（`reset()` / `step()`）—— 作为 IK 与学习型方法的对照基线
 - 为场景添加 `<camera>`，做视觉输入
 
 ## 许可
