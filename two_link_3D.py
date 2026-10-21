@@ -47,12 +47,12 @@ def Rz(d):
                      [0, 0, 0, 1.0]])
 
 
-def get_T(roll,pitch,yaw):
+def get_T(roll,pitch,yaw,L):
     T = Rz(yaw) @ Ry(pitch) @ Rx(roll) @ Tr(L, 0, 0)
     return T
 
-T1 = get_T(0,-90,0)
-T2 = T1 @ get_T(0,180,0)
+T1 = get_T(0,-90,0,1)
+T2 = T1 @ get_T(0,180,0,1)
 e1 = T1[:3, 3]
 e2 = T2[:3,3]
 print("T1 =\n", T1, "\n")
