@@ -8,14 +8,14 @@
 """
 import os, sys
 import mujoco, mujoco.viewer
-import imageio.v2 as imageio
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "docs", "demo.gif")
 
-FPS = 20            # 输出帧率
-MAX_FRAMES = 170    # 最多采集帧数（约 8.5 秒），录满后仿真继续但不采集
-W, H = 480, 360     # 输出分辨率；想更清晰可改 640x480，但 GIF 会变大
+FPS = 12            # 输出帧率
+MAX_FRAMES = 120    # 最多采集帧数（约 10 秒），录满后仿真继续但不采集
+W, H = 400, 300     # 输出分辨率；想更清晰可改 640x480，但 GIF 会变大
+COLORS = 96         # 调色板颜色数，越小文件越小
 
 _recorder = None
 
@@ -68,8 +68,11 @@ if __name__ == "__main__":
     runpy.run_path(os.path.join(HERE, "ctrl_3G_random.py"), run_name="__main__")
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    imageio.mimsave(OUT, _recorder.frames, fps=FPS, loop=0)
+    from PIL import Image
+    imgs = [Image.fromarray(f).quantize(colors=COLORS) for f in _recorder.frames]
+    imgs[0].save(OUT, save_all=True, append_images=imgs[1:],
+                 duration=int(1000 / FPS), loop=0, optimize=True, disposal=2)
     mb = os.path.getsize(OUT) / 1024 / 1024
-    print(f"\n[录屏] {len(_recorder.frames)} 帧 -> {os.path.abspath(OUT)}  ({mb:.1f} MB)")
-    if mb > 5:
-        print("[提示] 超过 5MB，可把 W,H 调小或降低 MAX_FRAMES")
+    print(f"\n[录屏] {len(imgs)} 帧 -> {os.path.abspath(OUT)}  ({mb:.1f} MB)")
+    if mb > 3:
+        print("[提示] 超过 3MB，可调小 W,H 或 COLORS 后重跑")
