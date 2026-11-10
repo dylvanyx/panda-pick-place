@@ -1,100 +1,71 @@
-# MuJoCo 机械臂仿真 — Franka Panda 抓取
+# Franka Panda 视觉抓取闭环
 
-基于 [MuJoCo](https://mujoco.org/) 与 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) 的
-Franka Emika Panda 模型，练习**正运动学推导 → 逆运动学求解 → 抓取闭环**的完整链路。
+MuJoCo 环境下的 Franka Emika Panda 七自由度机械臂自主抓取：
+**单目相机定位 → 差分 IK 解算 → 阶段表驱动执行**，抓取流程中不读取仿真真值。
 
-## 环境
+| 指标 | 结果 |
+| --- | --- |
+| 方块定位误差 | 0.8 ~ 2.8 mm |
+| 抓取成功率 | 3 / 3（随机位置三回合） |
+| 举升高度 | 约 490 mm |
 
-| 组件 | 版本 |
-|---|---|
-| Python | 3.10.21（便携 conda，位于 `../mujoco_env/`） |
-| mujoco | 3.13.0 |
-| mink | 1.2.0（IK 求解，quadprog 后端） |
-| numpy | 2.2.6 |
-| scipy | 1.15.3 |
-| gymnasium | 1.3.0 |
+## 快速开始
 
-解释器用绝对路径调用（未做 `conda init`）：
-
-```
-D:\MuJoCo_Projects\mujoco_env\python.exe
+```bash
+pip install -r achievement/requirements.txt
+python achievement/ctrl_3G_random.py
 ```
 
-## 目录
+Windows 下也可以直接双击 `run.bat`。
 
-| 路径 | 说明 |
-|---|---|
-| `franka_emika_panda/` | Panda 模型本体 + 网格资源（来自 MuJoCo Menagerie） |
-| `franka_emika_panda/scene_pick_table.xml` | 自建抓取场景：桌面 + 50 mm 方块 |
-| `franka_emika_panda/scene_pick.xml` | 官方场景：含小球 |
-| `scene.xml` | 官方场景副本 |
-| `run.bat` | 启动器，把场景路径透传给 `1.py` |
-| `1.py` | 模型加载 + 可视化窗口实验 |
-| `ik_demo.py` | 逆运动学最小示例（`--dry` 可无窗口运行） |
-| `grasp_demo.py` | 分步抓取状态机：IK → 到位判定 → 闭合 → 抬升 |
-| `two_link.py` | 平面二连杆手写 FK |
-| `three_link_2d.xml` | 平面三连杆模型（配合对拍脚本） |
-| `fk_check.py` | 手写矩阵 FK ↔ MuJoCo 结果对拍 |
-| `three_d_link.py` | 3D 单连杆手写 FK（RPY + 4×4 齐次矩阵） |
-| `two_link_3D.py` | 3D 二连杆手写 FK |
-| `matrix_calc.py` | 矩阵乘法小工具 |
-| `完整示例.py` | IK 闭环六步最小示例（`GOAL` / `QUAT` 两个开关） |
-| `闭环控制.py` | `move_to()` 到位即停：容差 10 mm + 连续 25 次确认 |
-| `循环对比.py` | 错误循环 vs 正确闭环，各 800 步对照 |
-| `四元数解读.py` | 输入 wxyz，打印旋转角、单位轴、RPY 与旋转矩阵 |
-| `抓取举升.py` | 下降 → 夹紧 → 举升 → 转腕完整流程，附实测安全转速表 |
-| `插值转身.py` | 位置直线 + 姿态插值同步，S 曲线起停，内置 PostureTask |
-| `dataflow_trace.py` | 追踪 `MjModel` / `MjData` 的数据流 |
-| `封装函数/` | `make_ik()` 统一初始化（model / data / cfg / task / limits / dt） |
+## 核心代码
 
-## 运行
+只读这两个文件就够了：
 
-启动可视化窗口：
+| 文件 | 职责 |
+| --- | --- |
+| [`achievement/perc_1G.py`](achievement/perc_1G.py) | **感知层**。离屏渲染 → 颜色分割 → 质心 → 反投影，输出方块中心的世界坐标 |
+| [`achievement/ctrl_3G_random.py`](achievement/ctrl_3G_random.py) | **控制层与主流程**。随机投放方块 → 观察位拍照 → 视觉定位 → 高位垂直下降 → 夹取举升 |
 
-```
-run.bat
-```
+## 工作原理
 
-指定场景：
+### 感知：颜色负责「在哪」，先验负责「多远」
 
-```
-run.bat franka_emika_panda\scene_pick_table.xml
-```
+1. `mujoco.Renderer` 从俯视相机取一帧 256×256 的 RGB
+2. 色度判据分割红色方块：`R - max(G, B) > 40`。比绝对阈值更抗光照——顶面被光洗白、侧面落进阴影都能稳定命中
+3. 顶面关于中心竖轴对称，所以 mask 的质心就是中心轴的投影，直接对像素坐标取均值
+4. 俯视且方块高度恒定时，相机到顶面的距离 `d` 是常数，反投影退化成线性映射：
 
-命令行运行：
+   ```
+   f = (H / 2) / tan(fovy / 2)
+   x = cam_x + (u - cx) * d / f
+   y = cam_y - (v - cy) * d / f     # v 轴朝下，取负
+   ```
 
-```
-D:\MuJoCo_Projects\mujoco_env\python.exe ik_demo.py
-D:\MuJoCo_Projects\mujoco_env\python.exe grasp_demo.py
-D:\MuJoCo_Projects\mujoco_env\python.exe fk_check.py
-D:\MuJoCo_Projects\mujoco_env\python.exe 插值转身.py
-D:\MuJoCo_Projects\mujoco_env\python.exe 抓取举升.py
-```
+   因为 `d` 已知，连深度图都不用渲染。
 
-`插值转身.py` 加 `--headless` 可不开窗口，只打印用时、位置漂移与姿态残差。
+5. 抓取点 = 顶面中心 + 竖直偏移
 
-## 已完成
+### 控制：阶段表 + 差分 IK
 
-- **手写正运动学**：4×4 齐次变换矩阵连乘，从平面二/三连杆推广到 3D（RPY）。
-  与 MuJoCo 的 `body.xpos` 逐点对拍，最大差值 **1.1e-16**（机器精度）。
-- **逆运动学**：`mink` 的 `FrameTask` 约束 `hand` 帧，quadprog 后端 4~5 次迭代收敛，
-  耗时约 6 ms，残差约 1e-8 m，关节限位检查无越界。
-- **抓取闭环**：桌面 50 mm 方块，IK → 到位判定 → 夹爪闭合 → 抬升，实测抬升 **223.4 mm**。
-- **夹爪几何标定**：真实内开口 59 mm（非 80 mm），两指夹取中心相对 `hand` 偏移 58.4 mm。
-- **姿态插值**：`SO3.interpolate()`（等价四元数 slerp，逐点差 5e-16）驱动末端转向，
-  位置与姿态共用同一进度参数；转 90° / 45°每秒，位置漂移 7.1 mm、姿态残差 1.4°。
-- **时间参数化**：起停用 S 曲线（`u = t²(3−2t)`），姿态残差从 4.52° 降到 1.38°。
-- **冗余自由度**：`PostureTask(cost=1e-2)` 让七关节臂多余的自由度回归 home 位，
-  绕世界 y 轴转 90° 从 212.5 mm / 38.5° 改善到 9.6 mm / 0.4°。
-- **转腕安全线**：纯平移举升 ≤1500 mm/s；夹持转腕 90° 用 45°/s，180° 须 ≤22°/s。
+- **IK**：`mink` 的 `FrameTask` 锁定末端位姿，`quadprog` 求解，配合 `ConfigurationLimit` 保证关节限位
+- **恒速移动**：步数 = 距离 / (速度 × dt)，插值逐帧下发 `ctrl`，速度与距离无关
+- **阶段表**：`Phase(target, grip, wait, R)` 把「去哪、夹爪开合、等多久、什么姿态」压成一行，主循环只管遍历
+- **观察位**：每回合先把机械臂撤出相机视锥再拍照，解决「手爪悬在方块正上方」的遮挡
+- **高位垂直下降**：先到目标正上方再竖直落下。若从观察位直接斜插过去，张开的手指会像扫帚一样把方块推开约 29 mm
 
-## 进行中
+## 文件说明
 
-- Panda 七关节手写 FK 与 MuJoCo 逐段对拍
-- gymnasium 风格环境封装（`reset()` / `step()`）—— 作为 IK 与学习型方法的对照基线
-- 为场景添加 `<camera>`，做视觉输入
+`achievement/` 下另有 `ctrl_1G / 2G / 3G` 等早期版本，记录了从「单次 IK」到「循环 IK + 阶段表」的演进过程；仓库根目录还有一些学习期的演示脚本（FK 对拍、轨迹插值、四元数解读等）。它们不属于本项目主线，代码风格与完成度不一，仅作过程记录保留。
+
+## 已知限制
+
+- 相机必须正上方俯视，且依赖「方块高度恒定」，深度才能当常数处理
+- 单一颜色阈值，只支持红色方块；多目标与相互遮挡未处理
+- 未做手眼标定，相机外参直接取自 `model.cam_pos`（仿真的红利）
+
+下一步计划：斜视机位 + 深度图 + 世界点云高度过滤，解除「相机必须在正上方」的机位限制。
 
 ## 许可
 
-`franka_emika_panda/` 目录取自 MuJoCo Menagerie，采用 Apache-2.0 许可，
-版权归原项目所有。本项目对该模型的使用、修改与再分发遵循同一许可。
+`franka_emika_panda/` 目录取自 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie)，采用 Apache-2.0 许可。

@@ -1,7 +1,8 @@
 from typing import NamedTuple
-import mujoco,mujoco.viewer,mink,numpy as np,time
+import os,mujoco,mujoco.viewer,mink,numpy as np,time
 
-SENCE_PATH = r"D:\MuJoCo_Projects\test\franka_emika_panda\scene_pick_table.xml"
+SENCE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "..","franka_emika_panda","scene_pick_table.xml")
 # 加载模型
 model = mujoco.MjModel.from_xml_path(SENCE_PATH)
 data = mujoco.MjData(model)
@@ -54,7 +55,7 @@ FALLDOWN = 1.5
 #阶段表（xpos,(0~255),wait,R）
 phase = [Phase(cube_realtime,0,GRIPTIME),Phase(x_home,255,FALLDOWN),Phase(cube_realtime,0,GRIPTIME),Phase(x_home,0),Phase(x_home,255,FALLDOWN),Phase(x_home,0,GRIPTIME)]
 
-def make_ik(model,data):    #准备
+def prepare(model,data):    #准备
     cfg = mink.Configuration(model)
     cfg.update_from_keyframe("home")
 
@@ -62,7 +63,7 @@ def make_ik(model,data):    #准备
     limits = [mink.ConfigurationLimit(model)]   #限制   
     return cfg,task,limits
 # 接住变量
-cfg,task,limits = make_ik(model,data)
+cfg,task,limits = prepare(model,data)
 
 
 def move(p,R,step_size=500): 
@@ -74,23 +75,23 @@ def move(p,R,step_size=500):
         data.ctrl[:7] = cfg.q[:7]
         mujoco.mj_step(model, data)
         viewer.sync()
-
-with mujoco.viewer.launch_passive(model,data) as viewer:
-
-
+if __name__ == "__main__":
+    with mujoco.viewer.launch_passive(model,data) as viewer:
 
 
-    for p,grip,wait,R in phase:
-        p = p() if callable(p) else p
-        R = R if R is not None else R_home  
-        smart_size = int(np.linalg.norm(data.body("hand").xpos-p)/(v*dt)) 
-        move(p,R,smart_size)
-        mujoco.mj_step(model, data)
-        hold(wait,grip) #开到闭
-        mujoco.mj_step(model, data)
-        viewer.sync()
-        
-        
-    while viewer.is_running():              # 走完别急着关窗
-        mujoco.mj_step(model, data)
-        viewer.sync()
+
+
+        for p,grip,wait,R in phase:
+            p = p() if callable(p) else p
+            R = R if R is not None else R_home  
+            smart_size = int(np.linalg.norm(data.body("hand").xpos-p)/(v*dt)) 
+            move(p,R,smart_size)
+            mujoco.mj_step(model, data)
+            hold(wait,grip) #开到闭
+            mujoco.mj_step(model, data)
+            viewer.sync()
+            
+            
+        while viewer.is_running():              # 走完别急着关窗
+            mujoco.mj_step(model, data)
+            viewer.sync()

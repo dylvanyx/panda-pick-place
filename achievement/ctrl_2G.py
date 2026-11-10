@@ -1,6 +1,7 @@
-import mujoco,mujoco.viewer,mink,numpy as np,time
+import os,mujoco,mujoco.viewer,mink,numpy as np,time
 
-SENCE_PATH = r"D:\MuJoCo_Projects\test\franka_emika_panda\scene_pick_table.xml"
+SENCE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "..","franka_emika_panda","scene_pick_table.xml")
 # 加载模型
 model = mujoco.MjModel.from_xml_path(SENCE_PATH)
 data = mujoco.MjData(model)
