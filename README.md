@@ -1,5 +1,7 @@
 # Franka Panda 视觉抓取闭环
 
+![demo](docs/demo.gif)
+
 MuJoCo 环境下的 Franka Emika Panda 七自由度机械臂自主抓取：
 **单目相机定位 → 差分 IK 解算 → 阶段表驱动执行**，抓取流程中不读取仿真真值。
 
